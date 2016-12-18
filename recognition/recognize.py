@@ -1,7 +1,8 @@
+import io
 import json
 
 import tensorflow as tf
-from scipy.misc import imread
+from PIL import Image
 
 from recognition.train_utils import build_forward
 from recognition.utils.train_utils import filter_rectangles
@@ -39,19 +40,15 @@ class Recognizer:
 
         saver = tf.train.Saver()
         self.sess = tf.Session()
-        self.sess.run(tf.initialize_all_variables())
+        self.sess.run(tf.global_variables_initializer())
         saver.restore(self.sess, './recognition/data/save.ckpt-150000v2')
 
-    def recognize(self, image_path):
-        img = imread(image_path)
+    def recognize(self, image):
+        stream = io.BytesIO(image)
+        img = Image.open(stream)
         feed = {self.x_in: img}
         (np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
 
         filtered = filter_rectangles(self.config, np_pred_confidences, np_pred_boxes, use_stitching=True,
                                      rnn_len=self.config['rnn_len'], min_conf=0.7)
         return filtered
-
-
-if __name__ == '__main__':
-    recognizer = Recognizer()
-    recognizer.recognize(image_path='/Users/nickolay/Documents/projects/people-recognition/test_images/t3.jpg')
