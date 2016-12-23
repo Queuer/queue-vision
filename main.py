@@ -1,11 +1,11 @@
 from multiprocessing import Pool
 
-from config import config
-from recognition.recognize import Recognizer
-
+from tornado import httpclient
 from tornado import ioloop, web, gen
 from tornado.escape import json_encode
-from tornado import httpclient
+
+from config import config
+from recognition.recognize import Recognizer
 
 recognizer = None
 pool = None
@@ -24,8 +24,24 @@ def recognize(path):
 
 # noinspection PyAbstractClass
 class MainHandler(web.RequestHandler):
-    @web.asynchronous
-    @gen.engine
+    @gen.coroutine
+    def load_image(self, url):
+        request = httpclient.HTTPRequest(url)
+        result = yield http_client.fetch(request)
+        raise gen.Return(result)
+
+    @gen.coroutine
+    def recognize(self, path):
+        result = yield gen.Task(
+            lambda callback: pool.apply_async(
+                func=recognize,
+                args=(path,),
+                callback=callback
+            )
+        )
+        raise gen.Return(result)
+
+    @gen.coroutine
     def get(self):
         image_url = self.get_argument('image')
 
@@ -40,21 +56,6 @@ class MainHandler(web.RequestHandler):
         self.add_header('Content-Type', 'application/json')
         self.write(json_encode(data))
         self.finish()
-
-    @staticmethod
-    def load_image(url):
-        request = httpclient.HTTPRequest(url)
-        return http_client.fetch(request)
-
-    @staticmethod
-    def recognize(path):
-        return gen.Task(
-            lambda callback: pool.apply_async(
-                func=recognize,
-                args=(path,),
-                callback=callback
-            )
-        )
 
 
 def app():
